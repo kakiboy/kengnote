@@ -529,11 +529,11 @@
     }
   }
 
-  async function exportToImage() {
+   async function exportToImage() {
     const container = document.getElementById('notesContainer');
     if (!container.innerHTML || container.innerText.includes("ไม่มีงานค้าง")) return alert("ยังไม่มีข้อมูลงานให้บันทึกรูปภาพครับ");
     
-    // 1. ตกแต่งก่อนถ่ายรูป (โค้ดเดิมของคุณครู)
+    // 1. ตกแต่งก่อนถ่ายรูป
     const originalBg = container.style.backgroundColor;
     container.style.backgroundColor = '#e9ecef';
     container.style.padding = '15px';
@@ -548,46 +548,21 @@
     if(btn) { btn.innerText = "กำลังสร้างรูป..."; btn.disabled = true; }
   
     try {
-      // 2. ถ่ายภาพด้วย html2canvas
+      // 2. ถ่ายภาพ
       const canvas = await html2canvas(container, { scale: 2, backgroundColor: null, useCORS: true });
       
-      // 3. คืนค่ารูปแบบเดิมทันทีหลังถ่ายเสร็จ
+      // 3. คืนค่ารูปแบบเดิม
       container.removeChild(header);
       container.style.backgroundColor = originalBg;
       container.style.padding = '0';
       if(btn) { btn.innerText = oldText; btn.disabled = false; }
   
-      // 4. แปลงภาพและสั่งบันทึก/แชร์ (รองรับมือถือ)
-      canvas.toBlob(async function(blob) {
-        const fileName = `SmartNote_Tasks_${new Date().toISOString().slice(0,10)}.png`;
-        const file = new File([blob], fileName, { type: blob.type });
+      const imgDataUrl = canvas.toDataURL("image/png");
   
-        // เช็กว่าเปิดบนมือถือและรองรับการแชร์หรือไม่
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            // จะเด้งเมนูมือถือขึ้นมาให้เลือกว่าจะ "บันทึกภาพ" หรือ "ส่งไลน์"
-            await navigator.share({
-              files: [file],
-              title: 'จดบันทึกจาก My Smart Note'
-            });
-          } catch (err) {
-            console.log("ผู้ใช้ยกเลิกการแชร์", err);
-          }
-        } else {
-          // ถ้าใช้บนคอมพิวเตอร์ ให้ดาวน์โหลดไฟล์ปกติ
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = fileName;
-          document.body.appendChild(link); // ต้องมีบรรทัดนี้มือถือบางรุ่นถึงจะยอม
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-        }
-      }, 'image/png');
+      // 4. สร้างหน้าต่างแสดงรูปภาพให้กดค้าง (วิธีนี้ชัวร์ที่สุดบนมือถือ)
+      showImageForMobile(imgDataUrl);
   
     } catch (error) {
-      // กรณีเกิด Error ให้คืนค่าหน้าเว็บกลับมาด้วย
       container.removeChild(header);
       container.style.backgroundColor = originalBg;
       container.style.padding = '0';
@@ -595,6 +570,49 @@
       alert("เกิดข้อผิดพลาด ไม่สามารถสร้างรูปภาพได้ครับ");
       console.error(error);
     }
+  }
+  
+  // ฟังก์ชันเสริม: แสดงหน้าต่าง Pop-up ให้แตะรูปค้างเพื่อเซฟ
+  function showImageForMobile(imgDataUrl) {
+    // สร้างพื้นหลังสีดำทับหน้าจอ
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0'; overlay.style.left = '0';
+    overlay.style.width = '100vw'; overlay.style.height = '100vh';
+    overlay.style.backgroundColor = 'rgba(0,0,0,0.9)';
+    overlay.style.zIndex = '9999';
+    overlay.style.display = 'flex';
+    overlay.style.flexDirection = 'column';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+  
+    // ข้อความแจ้งเตือน
+    const text = document.createElement('p');
+    text.innerText = "👇 แตะค้างที่รูปภาพเพื่อบันทึกลงเครื่อง 👇";
+    text.style.color = 'white';
+    text.style.marginBottom = '20px';
+    text.style.fontSize = '18px';
+    text.style.fontWeight = 'bold';
+  
+    // ตัวรูปภาพที่สร้างเสร็จแล้ว
+    const img = document.createElement('img');
+    img.src = imgDataUrl;
+    img.style.maxWidth = '90%';
+    img.style.maxHeight = '70%';
+    img.style.borderRadius = '10px';
+    img.style.boxShadow = '0 0 15px rgba(255,255,255,0.3)';
+  
+    // ปุ่มปิดหน้าต่าง
+    const closeBtn = document.createElement('button');
+    closeBtn.innerText = "ปิดหน้าต่าง";
+    closeBtn.className = "btn btn-danger mt-4";
+    closeBtn.onclick = () => document.body.removeChild(overlay);
+  
+    // ประกอบชิ้นส่วนลงจอ
+    overlay.appendChild(text);
+    overlay.appendChild(img);
+    overlay.appendChild(closeBtn);
+    document.body.appendChild(overlay);
   }
 
   function exportHistoryToImage() {
