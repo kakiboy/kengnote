@@ -130,7 +130,7 @@
           <div class="mb-4">
             <label class="form-label text-secondary small mb-1">อีเมลแจ้งเตือนเริ่มต้น (ซิงก์ทุกอุปกรณ์)</label>
             <div class="input-group">
-              <input type="email" id="defaultEmailSetting" class="form-control form-control-sm" placeholder="เช่น a@mail.com">
+              <input type="email" id="defaultEmailSetting" class="form-control form-control-sm" placeholder="เช่น a@gmail.com">
               <button onclick="saveDefaultEmail()" id="btnSaveEmail" class="btn btn-sm btn-secondary">บันทึก</button>
             </div>
           </div>
@@ -310,7 +310,6 @@
     let btn = document.getElementById('addBtn');
     btn.innerText = "กำลังบันทึก..."; btn.disabled = true;
 
-    // ถ้ามีการเปลี่ยนอีเมลในช่องกรอก ให้บันทึกอัปเดตลง Database อัตโนมัติด้วย
     if (targetEmail && targetEmail !== globalDefaultEmail) {
       await callApi({ action: 'saveDefaultEmail', email: targetEmail });
       globalDefaultEmail = targetEmail;
@@ -463,7 +462,6 @@
     });
   }
 
-  // อัปเดตฟังก์ชันบันทึกอีเมลจากการตั้งค่า ให้ยิงเข้า Database
   async function saveDefaultEmail() {
     let email = document.getElementById("defaultEmailSetting").value;
     let btn = document.getElementById("btnSaveEmail");
@@ -531,10 +529,8 @@
 
   async function exportToImage() {
     const container = document.getElementById('notesContainer');
-    // เช็กข้อมูลก่อนทำภาพ
     if (!container.innerHTML || container.innerText.includes("ไม่มีงานค้าง")) return alert("ยังไม่มีข้อมูลงานให้บันทึกรูปภาพครับ");
     
-    // 1. ตกแต่งพื้นหลังก่อนถ่ายรูป
     const originalBg = container.style.backgroundColor;
     container.style.backgroundColor = '#e9ecef';
     container.style.padding = '15px';
@@ -544,33 +540,26 @@
     header.innerHTML = '<h5 class="text-center text-primary fw-bold mb-3">📝 งานที่ต้องทำ (My Smart Note)</h5>';
     container.insertBefore(header, container.firstChild);
     
-    // 2. เปลี่ยนปุ่มให้เป็นสถานะกำลังทำภาพ
     let btn = document.querySelector('button[onclick="exportToImage()"]');
     let oldText = btn ? btn.innerText : 'เซฟรูป';
     if(btn) { btn.innerText = "กำลังสร้างรูป..."; btn.disabled = true; }
   
     try {
-      // 3. ถ่ายภาพด้วย html2canvas (สำคัญ: เปิด useCORS เพื่อให้ดึงรูปในโน้ตได้)
       const canvas = await html2canvas(container, { 
-        scale: 2, // เพิ่มความชัด
-        backgroundColor: null, 
+        scale: 1, 
+        backgroundColor: "#e9ecef", 
         useCORS: true 
       });
       
-      // 4. คืนค่ารูปแบบเดิมทันทีหลังถ่ายเสร็จ
       container.removeChild(header);
       container.style.backgroundColor = originalBg;
       container.style.padding = '0';
       if(btn) { btn.innerText = oldText; btn.disabled = false; }
   
-      // 5. แปลงภาพเป็นโค้ด DataURL เพื่อนำไปแสดงผล
       const imgDataUrl = canvas.toDataURL("image/png");
-  
-      // 6. หน้าต่างแสดงรูปภาพ Pop-up สำหรับ Safari (Long press to save)
       showImageForSafari(imgDataUrl);
   
     } catch (error) {
-      // หาก Error ให้คืนค่าหน้าเว็บเดิมด้วย
       if (container.contains(header)) container.removeChild(header);
       container.style.backgroundColor = originalBg;
       container.style.padding = '0';
@@ -580,23 +569,21 @@
     }
   }
   
-  // === ฟังก์ชันเสริม: สร้างหน้าจอโชว์รูปให้แตะค้าง ===
+  // สร้างหน้าจอโชว์รูปให้แตะค้าง (ใช้ร่วมกันทั้งหน้าหลักและหน้าประวัติ)
   function showImageForSafari(imgDataUrl) {
-    // สร้างพื้นหลังสีดำขุ่นทับหน้าจอเดิม (Overlay)
     const overlay = document.createElement('div');
     overlay.id = 'imgOverlay';
     overlay.style.position = 'fixed';
     overlay.style.top = '0'; overlay.style.left = '0';
     overlay.style.width = '100%'; overlay.style.height = '100%';
-    overlay.style.backgroundColor = 'rgba(0,0,0,0.9)'; // ดำขุ่น
-    overlay.style.zIndex = '9999'; // ทับบนสุด
+    overlay.style.backgroundColor = 'rgba(0,0,0,0.9)'; 
+    overlay.style.zIndex = '9999'; 
     overlay.style.display = 'flex';
     overlay.style.flexDirection = 'column';
     overlay.style.alignItems = 'center';
     overlay.style.justifyContent = 'center';
     overlay.style.padding = '20px';
   
-    // ข้อความแจ้งเตือนสีขาว
     const text = document.createElement('p');
     text.innerHTML = "👇 แตะค้างที่รูปภาพเพื่อบันทึกลงเครื่อง 👇";
     text.style.color = 'white';
@@ -605,28 +592,25 @@
     text.style.fontWeight = 'bold';
     text.style.textAlign = 'center';
   
-    // ตัวรูปภาพที่สร้างเสร็จแล้ว
     const img = document.createElement('img');
     img.src = imgDataUrl;
-    img.style.maxWidth = '90%'; // ขนาดพอดีจอ
+    img.style.maxWidth = '90%'; 
     img.style.maxHeight = '70%'; 
     img.style.borderRadius = '10px';
     img.style.boxShadow = '0 0 15px rgba(255,255,255,0.3)';
   
-    // ปุ่มปิดหน้าต่าง pop-up
     const closeBtn = document.createElement('button');
     closeBtn.innerText = "ปิดหน้าต่าง";
     closeBtn.className = "btn btn-danger mt-4";
     closeBtn.onclick = () => document.body.removeChild(overlay);
   
-    // ประกอบชิ้นส่วนลงจอ
     overlay.appendChild(text);
     overlay.appendChild(img);
     overlay.appendChild(closeBtn);
     document.body.appendChild(overlay);
   }
 
-  function exportHistoryToImage() {
+  async function exportHistoryToImage() {
     const container = document.getElementById('historyContainer');
     if (!container.innerHTML || container.innerText.includes("ไม่มีรายการ")) return alert("ยังไม่มีประวัติให้บันทึกรูปภาพครับ");
 
@@ -649,18 +633,30 @@
     let oldText = btn.innerText;
     btn.innerText = "กำลังสร้างรูป..."; btn.disabled = true;
 
-    html2canvas(container, { scale: 2, backgroundColor: null, useCORS: true }).then(canvas => {
+    try {
+      const canvas = await html2canvas(container, { 
+        scale: 1, 
+        backgroundColor: "#e9ecef", 
+        useCORS: true 
+      });
+      
       container.removeChild(header);
       container.style.backgroundColor = originalBg;
       container.style.padding = '0';
       trashBtns.forEach(btn => btn.style.display = 'block');
       btn.innerText = oldText; btn.disabled = false;
       
-      let link = document.createElement('a');
-      link.download = `SmartNote_Report_${new Date().toISOString().slice(0,10)}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-    });
+      const imgDataUrl = canvas.toDataURL("image/png");
+      showImageForSafari(imgDataUrl); 
+    } catch (error) {
+      if (container.contains(header)) container.removeChild(header);
+      container.style.backgroundColor = originalBg;
+      container.style.padding = '0';
+      trashBtns.forEach(btn => btn.style.display = 'block');
+      btn.innerText = oldText; btn.disabled = false;
+      alert("เกิดข้อผิดพลาดในการสร้างรูปภาพครับ");
+      console.error(error);
+    }
   }
 </script>
 
