@@ -529,11 +529,12 @@
     }
   }
 
-   async function exportToImage() {
+  async function exportToImage() {
     const container = document.getElementById('notesContainer');
+    // เช็กข้อมูลก่อนทำภาพ
     if (!container.innerHTML || container.innerText.includes("ไม่มีงานค้าง")) return alert("ยังไม่มีข้อมูลงานให้บันทึกรูปภาพครับ");
     
-    // 1. ตกแต่งก่อนถ่ายรูป
+    // 1. ตกแต่งพื้นหลังก่อนถ่ายรูป
     const originalBg = container.style.backgroundColor;
     container.style.backgroundColor = '#e9ecef';
     container.style.padding = '15px';
@@ -543,66 +544,76 @@
     header.innerHTML = '<h5 class="text-center text-primary fw-bold mb-3">📝 งานที่ต้องทำ (My Smart Note)</h5>';
     container.insertBefore(header, container.firstChild);
     
+    // 2. เปลี่ยนปุ่มให้เป็นสถานะกำลังทำภาพ
     let btn = document.querySelector('button[onclick="exportToImage()"]');
     let oldText = btn ? btn.innerText : 'เซฟรูป';
     if(btn) { btn.innerText = "กำลังสร้างรูป..."; btn.disabled = true; }
   
     try {
-      // 2. ถ่ายภาพ
-      const canvas = await html2canvas(container, { scale: 2, backgroundColor: null, useCORS: true });
+      // 3. ถ่ายภาพด้วย html2canvas (สำคัญ: เปิด useCORS เพื่อให้ดึงรูปในโน้ตได้)
+      const canvas = await html2canvas(container, { 
+        scale: 2, // เพิ่มความชัด
+        backgroundColor: null, 
+        useCORS: true 
+      });
       
-      // 3. คืนค่ารูปแบบเดิม
+      // 4. คืนค่ารูปแบบเดิมทันทีหลังถ่ายเสร็จ
       container.removeChild(header);
       container.style.backgroundColor = originalBg;
       container.style.padding = '0';
       if(btn) { btn.innerText = oldText; btn.disabled = false; }
   
+      // 5. แปลงภาพเป็นโค้ด DataURL เพื่อนำไปแสดงผล
       const imgDataUrl = canvas.toDataURL("image/png");
   
-      // 4. สร้างหน้าต่างแสดงรูปภาพให้กดค้าง (วิธีนี้ชัวร์ที่สุดบนมือถือ)
-      showImageForMobile(imgDataUrl);
+      // 6. หน้าต่างแสดงรูปภาพ Pop-up สำหรับ Safari (Long press to save)
+      showImageForSafari(imgDataUrl);
   
     } catch (error) {
-      container.removeChild(header);
+      // หาก Error ให้คืนค่าหน้าเว็บเดิมด้วย
+      if (container.contains(header)) container.removeChild(header);
       container.style.backgroundColor = originalBg;
       container.style.padding = '0';
       if(btn) { btn.innerText = oldText; btn.disabled = false; }
-      alert("เกิดข้อผิดพลาด ไม่สามารถสร้างรูปภาพได้ครับ");
+      alert("เกิดข้อผิดพลาดในการสร้างรูปภาพครับ");
       console.error(error);
     }
   }
   
-  // ฟังก์ชันเสริม: แสดงหน้าต่าง Pop-up ให้แตะรูปค้างเพื่อเซฟ
-  function showImageForMobile(imgDataUrl) {
-    // สร้างพื้นหลังสีดำทับหน้าจอ
+  // === ฟังก์ชันเสริม: สร้างหน้าจอโชว์รูปให้แตะค้าง ===
+  function showImageForSafari(imgDataUrl) {
+    // สร้างพื้นหลังสีดำขุ่นทับหน้าจอเดิม (Overlay)
     const overlay = document.createElement('div');
+    overlay.id = 'imgOverlay';
     overlay.style.position = 'fixed';
     overlay.style.top = '0'; overlay.style.left = '0';
-    overlay.style.width = '100vw'; overlay.style.height = '100vh';
-    overlay.style.backgroundColor = 'rgba(0,0,0,0.9)';
-    overlay.style.zIndex = '9999';
+    overlay.style.width = '100%'; overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'rgba(0,0,0,0.9)'; // ดำขุ่น
+    overlay.style.zIndex = '9999'; // ทับบนสุด
     overlay.style.display = 'flex';
     overlay.style.flexDirection = 'column';
     overlay.style.alignItems = 'center';
     overlay.style.justifyContent = 'center';
+    overlay.style.padding = '20px';
   
-    // ข้อความแจ้งเตือน
+    // ข้อความแจ้งเตือนสีขาว
     const text = document.createElement('p');
-    text.innerText = "👇 แตะค้างที่รูปภาพเพื่อบันทึกลงเครื่อง 👇";
+    text.innerHTML = "👇 แตะค้างที่รูปภาพเพื่อบันทึกลงเครื่อง 👇";
     text.style.color = 'white';
     text.style.marginBottom = '20px';
     text.style.fontSize = '18px';
     text.style.fontWeight = 'bold';
+    text.style.textAlign = 'center';
   
     // ตัวรูปภาพที่สร้างเสร็จแล้ว
     const img = document.createElement('img');
     img.src = imgDataUrl;
-    img.style.maxWidth = '90%';
-    img.style.maxHeight = '70%';
+    img.style.maxWidth = '90%'; // ขนาดพอดีจอ
+    img.style.maxHeight = '70%'; 
     img.style.borderRadius = '10px';
     img.style.boxShadow = '0 0 15px rgba(255,255,255,0.3)';
   
-    // ปุ่มปิดหน้าต่าง
+    // ปุ่มปิดหน้าต่าง pop-up
     const closeBtn = document.createElement('button');
     closeBtn.innerText = "ปิดหน้าต่าง";
     closeBtn.className = "btn btn-danger mt-4";
