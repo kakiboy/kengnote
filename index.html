@@ -529,9 +529,11 @@
     }
   }
 
-  function exportToImage() {
+  async function exportToImage() {
     const container = document.getElementById('notesContainer');
     if (!container.innerHTML || container.innerText.includes("ไม่มีงานค้าง")) return alert("ยังไม่มีข้อมูลงานให้บันทึกรูปภาพครับ");
+    
+    // 1. ตกแต่งก่อนถ่ายรูป (โค้ดเดิมของคุณครู)
     const originalBg = container.style.backgroundColor;
     container.style.backgroundColor = '#e9ecef';
     container.style.padding = '15px';
@@ -542,20 +544,57 @@
     container.insertBefore(header, container.firstChild);
     
     let btn = document.querySelector('button[onclick="exportToImage()"]');
-    let oldText = btn.innerText;
-    btn.innerText = "กำลังสร้างรูป..."; btn.disabled = true;
-
-    html2canvas(container, { scale: 2, backgroundColor: null, useCORS: true }).then(canvas => {
+    let oldText = btn ? btn.innerText : 'เซฟรูป';
+    if(btn) { btn.innerText = "กำลังสร้างรูป..."; btn.disabled = true; }
+  
+    try {
+      // 2. ถ่ายภาพด้วย html2canvas
+      const canvas = await html2canvas(container, { scale: 2, backgroundColor: null, useCORS: true });
+      
+      // 3. คืนค่ารูปแบบเดิมทันทีหลังถ่ายเสร็จ
       container.removeChild(header);
       container.style.backgroundColor = originalBg;
       container.style.padding = '0';
-      btn.innerText = oldText; btn.disabled = false;
-      
-      let link = document.createElement('a');
-      link.download = `SmartNote_Tasks_${new Date().toISOString().slice(0,10)}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-    });
+      if(btn) { btn.innerText = oldText; btn.disabled = false; }
+  
+      // 4. แปลงภาพและสั่งบันทึก/แชร์ (รองรับมือถือ)
+      canvas.toBlob(async function(blob) {
+        const fileName = `SmartNote_Tasks_${new Date().toISOString().slice(0,10)}.png`;
+        const file = new File([blob], fileName, { type: blob.type });
+  
+        // เช็กว่าเปิดบนมือถือและรองรับการแชร์หรือไม่
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            // จะเด้งเมนูมือถือขึ้นมาให้เลือกว่าจะ "บันทึกภาพ" หรือ "ส่งไลน์"
+            await navigator.share({
+              files: [file],
+              title: 'จดบันทึกจาก My Smart Note'
+            });
+          } catch (err) {
+            console.log("ผู้ใช้ยกเลิกการแชร์", err);
+          }
+        } else {
+          // ถ้าใช้บนคอมพิวเตอร์ ให้ดาวน์โหลดไฟล์ปกติ
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          document.body.appendChild(link); // ต้องมีบรรทัดนี้มือถือบางรุ่นถึงจะยอม
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
+      }, 'image/png');
+  
+    } catch (error) {
+      // กรณีเกิด Error ให้คืนค่าหน้าเว็บกลับมาด้วย
+      container.removeChild(header);
+      container.style.backgroundColor = originalBg;
+      container.style.padding = '0';
+      if(btn) { btn.innerText = oldText; btn.disabled = false; }
+      alert("เกิดข้อผิดพลาด ไม่สามารถสร้างรูปภาพได้ครับ");
+      console.error(error);
+    }
   }
 
   function exportHistoryToImage() {
